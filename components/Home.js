@@ -8,45 +8,11 @@ import ListGroup from "react-bootstrap/ListGroup"
 import Navbar from "react-bootstrap/Navbar"
 import Row from "react-bootstrap/Row"
 import Spinner from "react-bootstrap/Spinner"
+import UserError from "../utils/userError"
 
 //#region Utilities
-const generatorIds = (initial = 0) => {
-  let id = initial
-  return () => {
-    return id++
-  }
-}
-const next = generatorIds()
-
-class UserError extends Error {
-  // constructor (...params) {
-  //   super(...params);
-  // }
-}
+const res2json = (res) => res.json()
 //#endregion
-
-const DUMMY_TODOS = [
-  {
-    id: next(),
-    content: "Cras justo odio",
-  },
-  {
-    id: next(),
-    content: "Dapibus ac facilisis in",
-  },
-  {
-    id: next(),
-    content: "Morbi leo risus",
-  },
-  {
-    id: next(),
-    content: "Porta ac consectetur ac",
-  },
-  {
-    id: next(),
-    content: "Vestibulum at eros",
-  },
-]
 
 export function Header({ signed }) {
   return (
@@ -74,31 +40,45 @@ export function Header({ signed }) {
 }
 
 export function Body() {
-  const [todos, setTodos] = useState(DUMMY_TODOS)
+  const [todos, setTodos] = useState([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-    }, 1000)
+    fetch("api/todos")
+      .then(res2json)
+      .then((data) => {
+        setTodos(data)
+        setLoading(false)
+      })
   }, [])
 
   const handlerAdd = (content) => {
-    setTodos([...todos, { id: next(), content }])
-
     //#region Validation
     //#endregion
     //#region Perform request
+    fetch("api/todos", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    })
+      .then(res2json)
+      .then((todo) => {
+        setTodos([...todos, todo])
+      })
     //#endregion
   }
 
   const handlerDelete = (id) => {
-    setTodos([...todos.filter((todo) => id !== todo.id)])
-
     //#region Validation
     //#endregion
     //#region Perform request
+    fetch(`api/todos/${id}`, {
+      method: "DELETE",
+    })
+      .then(res2json)
+      .then((todoDeleted) => {
+        setTodos([...todos.filter((todo) => todo.id !== todoDeleted.id)])
+      })
     //#endregion
   }
 
