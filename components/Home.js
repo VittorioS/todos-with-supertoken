@@ -226,6 +226,7 @@ export function TodoForm({
       //#region Perform request
       //#endregion
       setValidated(true)
+      setContent("")
       form.reset()
     } catch (exception) {
       setValidated(false)
