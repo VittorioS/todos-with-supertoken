@@ -1,5 +1,5 @@
 import Head from "next/head"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import Button from "react-bootstrap/Button"
 import Col from "react-bootstrap/Col"
 import Container from "react-bootstrap/Container"
@@ -8,10 +8,12 @@ import ListGroup from "react-bootstrap/ListGroup"
 import Navbar from "react-bootstrap/Navbar"
 import Row from "react-bootstrap/Row"
 import Spinner from "react-bootstrap/Spinner"
+import useSWR from "swr"
 import UserError from "../utils/userError"
 
 //#region Utilities
 const res2json = (res) => res.json()
+const fetcher = (...args) => fetch(...args).then(res2json)
 //#endregion
 
 export function Header({ signed }) {
@@ -40,18 +42,15 @@ export function Header({ signed }) {
 }
 
 export function Body() {
-  const [todos, setTodos] = useState([])
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    setLoading(true)
-    fetch("api/todos")
-      .then(res2json)
-      .then((data) => {
-        setTodos(data)
-        setLoading(false)
-      })
-  }, [])
+  const {
+    data: todos,
+    error,
+    mutate: mutateTodos,
+  } = useSWR("/api/todos", fetcher, {
+    revalidateOnFocus: false,
+    fallbackData: [],
+  })
+  const isLoading = !todos
 
   const handlerAdd = (content) => {
     //#region Validation
@@ -63,7 +62,7 @@ export function Body() {
     })
       .then(res2json)
       .then((todo) => {
-        setTodos([...todos, todo])
+        return mutateTodos([...todos, todo])
       })
     //#endregion
   }
@@ -78,7 +77,7 @@ export function Body() {
     })
       .then(res2json)
       .then((todoUpdated) => {
-        setTodos(
+        return mutateTodos(
           todos.map((todo) => {
             if (todo.id === todoUpdated.id) return todoUpdated
             return todo
@@ -97,7 +96,7 @@ export function Body() {
     })
       .then(res2json)
       .then((todoDeleted) => {
-        setTodos([...todos.filter((todo) => todo.id !== todoDeleted.id)])
+        return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
       })
     //#endregion
   }
@@ -105,7 +104,7 @@ export function Body() {
   return (
     <Container>
       <TodoForm className="pt-5" onAdd={handlerAdd}></TodoForm>
-      <TodoList className="pt-3" loading={loading}>
+      <TodoList className="pt-3" loading={isLoading}>
         {todos.map(({ id, content }) => (
           <TodoItem
             key={id}
