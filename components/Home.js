@@ -68,6 +68,26 @@ export function Body() {
     //#endregion
   }
 
+  const handlerEdit = ({ id, content }) => {
+    //#region Validation
+    //#endregion
+    //#region Perform request
+    fetch(`api/todos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ id, content }),
+    })
+      .then(res2json)
+      .then((todoUpdated) => {
+        setTodos(
+          todos.map((todo) => {
+            if (todo.id === todoUpdated.id) return todoUpdated
+            return todo
+          })
+        )
+      })
+    //#endregion
+  }
+
   const handlerDelete = (id) => {
     //#region Validation
     //#endregion
@@ -87,7 +107,12 @@ export function Body() {
       <TodoForm className="pt-5" onAdd={handlerAdd}></TodoForm>
       <TodoList className="pt-3" loading={loading}>
         {todos.map(({ id, content }) => (
-          <TodoItem key={id} id={id} onDelete={handlerDelete}>
+          <TodoItem
+            key={id}
+            id={id}
+            onDelete={handlerDelete}
+            onEdit={handlerEdit}
+          >
             {content}
           </TodoItem>
         ))}
@@ -113,7 +138,11 @@ export function TodoList({ className, children, loading }) {
   return <ListGroup className={className}>{children}</ListGroup>
 }
 
-export function TodoItem({ id, children, onDelete }) {
+export function TodoItem({ id, children, onDelete, onEdit }) {
+  const [editable, setEditable] = useState(false)
+
+  const handlerClickEdit = () => setEditable(!editable)
+
   const handlerClickDelete = () => {
     //#region fire delete event
     const isDeleteValid = typeof onDelete === "function"
@@ -121,11 +150,45 @@ export function TodoItem({ id, children, onDelete }) {
     //#endregion
   }
 
+  const handlerClickSave = (content) => {
+    //#region fire save event
+    const isSaveValid = typeof onEdit === "function"
+    if (isSaveValid) onEdit({ id, content })
+    //#endregion
+  }
+
   return (
     <ListGroup.Item>
       <Row className="justify-content-center align-items-center">
-        <Col>{children}</Col>
+        <Col>
+          {editable ? (
+            <TodoForm
+              buttonText="Save"
+              defaultContent={children}
+              onAdd={handlerClickSave}
+            ></TodoForm>
+          ) : (
+            <>{children}</>
+          )}
+        </Col>
         <Col xs="auto" className="text-align-right">
+          {editable ? (
+            <Button
+              className="me-1"
+              variant="secondary"
+              onClick={handlerClickEdit}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              className="me-1"
+              variant="secondary"
+              onClick={handlerClickEdit}
+            >
+              Edit
+            </Button>
+          )}
           <Button variant="danger" onClick={handlerClickDelete}>
             Delete
           </Button>
@@ -135,8 +198,13 @@ export function TodoItem({ id, children, onDelete }) {
   )
 }
 
-export function TodoForm({ className, onAdd }) {
-  const [content, setContent] = useState("")
+export function TodoForm({
+  className,
+  defaultContent = "",
+  buttonText = "Add todo",
+  onAdd,
+}) {
+  const [content, setContent] = useState(defaultContent)
   const [validated, setValidated] = useState(false)
 
   const handlerChange = (e) => setContent(e.target.value)
@@ -182,11 +250,12 @@ export function TodoForm({ className, onAdd }) {
             id="todoInput"
             placeholder="Todo"
             onChange={handlerChange}
+            value={content}
             required
           />
         </Col>
         <Col xs="auto" className="text-align-right">
-          <Button type="submit">Add todo</Button>
+          <Button type="submit">{buttonText}</Button>
         </Col>
       </Row>
     </Form>
