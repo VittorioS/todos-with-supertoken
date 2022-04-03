@@ -1,4 +1,4 @@
-import { update, remove } from "../../../repository/todos/local"
+import { update, remove } from "../../../repository/todos/prisma"
 
 async function GET(req, res) {}
 async function POST(req, res) {}

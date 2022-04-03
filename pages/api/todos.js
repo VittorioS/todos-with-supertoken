@@ -1,4 +1,4 @@
-import { add, findAll } from "../../repository/todos/local"
+import { add, findAll } from "../../repository/todos/prisma"
 
 async function GET(req, res) {
   res.status(200).json(await findAll())
