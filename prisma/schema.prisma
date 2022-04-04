@@ -14,4 +14,14 @@ model Todos {
   id        Int      @id @default(autoincrement())
   content   String?
   createdAt DateTime @default(now()) @db.Timestamp(6)
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int
+}
+
+model User {
+  id            Int     @id @default(autoincrement())
+  supertokensId String  @unique
+  firstname     String?
+  lastname      String?
+  Todos         Todos[]
 }

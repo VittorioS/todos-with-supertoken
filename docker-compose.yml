@@ -17,3 +17,9 @@ services:
     restart: always
     ports:
       - 9000:8080
+
+  supertokens:
+    image: supertokens/supertokens-postgresql
+    restart: always
+    ports:
+      - "3567:3567"
