@@ -1,11 +1,6 @@
 import UserError from "../../utils/userError"
 import { PrismaClient } from "@prisma/client"
-const prisma = new PrismaClient({
-  rejectOnNotFound: {
-    findFirst: { User: (err) => new UserError("User not found") },
-    findUnique: { User: (err) => new UserError("User not found") },
-  },
-})
+const prisma = new PrismaClient()
 
 export async function findById({ id }) {
   try {

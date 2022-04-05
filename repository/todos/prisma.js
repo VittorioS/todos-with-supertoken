@@ -1,5 +1,5 @@
-import UserError from "../../utils/userError"
 import { PrismaClient } from "@prisma/client"
+import UserError from "../../utils/userError"
 const prisma = new PrismaClient({
   rejectOnNotFound: {
     findFirst: { Todos: (err) => new UserError("Todo not found") },
@@ -10,6 +10,22 @@ const prisma = new PrismaClient({
 export async function findAll() {
   try {
     return await prisma.todos.findMany()
+  } catch (error) {
+    throw error
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+export async function findAllPrivate(supertokensId) {
+  try {
+    return await prisma.todos.findMany({
+      where: {
+        author: {
+          supertokensId,
+        },
+      },
+    })
   } catch (error) {
     throw error
   } finally {
@@ -45,7 +61,43 @@ export async function add({ content }) {
   }
 }
 
+export async function addPrivate({ content }, supertokensId) {
+  try {
+    return await prisma.todos.create({
+      data: {
+        content,
+        author: {
+          connect: {
+            supertokensId,
+          },
+        },
+      },
+    })
+  } catch (error) {
+    throw error
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
 export async function update({ id, content }) {
+  try {
+    return await prisma.todos.update({
+      data: {
+        content,
+      },
+      where: {
+        id: Number(id),
+      },
+    })
+  } catch (error) {
+    throw error
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+export async function updatePrivate({ id, content }, supertokensId) {
   try {
     return await prisma.todos.update({
       data: {
@@ -65,6 +117,20 @@ export async function update({ id, content }) {
 export async function remove({ id }) {
   try {
     return await prisma.todos.delete({
+      where: {
+        id: Number(id),
+      },
+    })
+  } catch (error) {
+    throw error
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+export async function removePrivate({ id }, supertokensId) {
+  try {
+    const {count} = await prisma.todos.delete({
       where: {
         id: Number(id),
       },
