@@ -68,17 +68,20 @@ export const backendConfig = () => {
               createNewSession: async function (input) {
                 let supertokensId = input.userId
 
-                const { firstname, lastname } = await findBySupertokensId({
-                  supertokensId,
-                })
-
                 // This goes in the access token, and is availble to read on the frontend.
                 input.accessTokenPayload = {
                   ...input.accessTokenPayload,
-                  userData: {
-                    firstname,
-                    lastname,
-                  },
+                }
+
+                const user = await findBySupertokensId({
+                  supertokensId,
+                })
+                if (user) {
+                  // This goes in the access token, and is availble to read on the frontend.
+                  input.accessTokenPayload.userData = {
+                    firstname: user.firstname,
+                    lastname: user.lastname,
+                  }
                 }
 
                 // This is stored in the db against the sessionHandle for this session
