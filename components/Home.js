@@ -18,8 +18,39 @@ const res2json = (res) => res.json()
 const fetcher = (...args) => fetch(...args).then(res2json)
 //#endregion
 
+//#region Repository
+const TodoRepositoryREST = {
+  create: async (content) => {
+    //#region Perform request
+    const response = await fetch("api/todos", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    })
+    return res2json(response)
+    //#endregion
+  },
+  update: async ({ id, content }) => {
+    //#region Perform request
+    const response = await fetch(`api/todos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ id, content }),
+    })
+    return res2json(response)
+    //#endregion
+  },
+  remove: async (id) => {
+    //#region Perform request
+    const response = await fetch(`api/todos/${id}`, {
+      method: "DELETE",
+    })
+    return res2json(response)
+    //#endregion
+  },
+}
+//#endregion
+
 //#region Hooks
-export function useTodos() {
+export function useTodos(TodoRepository) {
   const {
     data: todos,
     error,
@@ -29,52 +60,35 @@ export function useTodos() {
     fallbackData: [],
   })
 
-  const create = (content) => {
+  const create = async (content) => {
     //#region Validation
     //#endregion
     //#region Perform request
-    return fetch("api/todos", {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    })
-      .then(res2json)
-      .then((todo) => {
-        return mutateTodos([...todos, todo])
-      })
+    const todo = await TodoRepository.create(content)
+    return mutateTodos([...todos, todo])
     //#endregion
   }
 
-  const update = ({ id, content }) => {
+  const update = async ({ id, content }) => {
     //#region Validation
     //#endregion
     //#region Perform request
-    return fetch(`api/todos/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ id, content }),
-    })
-      .then(res2json)
-      .then((todoUpdated) => {
-        return mutateTodos(
-          todos.map((todo) => {
-            if (todo.id === todoUpdated.id) return todoUpdated
-            return todo
-          })
-        )
+    const todoUpdated = await TodoRepository.update({ id, content })
+    return mutateTodos(
+      todos.map((todo) => {
+        if (todo.id === todoUpdated.id) return todoUpdated
+        return todo
       })
+    )
     //#endregion
   }
 
-  const remove = (id) => {
+  const remove = async (id) => {
     //#region Validation
     //#endregion
     //#region Perform request
-    return fetch(`api/todos/${id}`, {
-      method: "DELETE",
-    })
-      .then(res2json)
-      .then((todoDeleted) => {
-        return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
-      })
+    const todoDeleted = await TodoRepository.remove(id)
+    return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
     //#endregion
   }
 
@@ -122,7 +136,7 @@ export function Body() {
   const [
     todos,
     { create: createTodo, update: updateTodo, remove: removeTodo },
-  ] = useTodos()
+  ] = useTodos(TodoRepositoryREST)
   const [content, setContent] = useState("")
   const isLoading = !todos
 
