@@ -25,6 +25,9 @@ export async function findAllPrivate(supertokensId) {
           supertokensId,
         },
       },
+      orderBy: {
+        id: 'asc'
+      }
     })
   } catch (error) {
     throw error
@@ -130,7 +133,7 @@ export async function remove({ id }) {
 
 export async function removePrivate({ id }, supertokensId) {
   try {
-    const {count} = await prisma.todos.delete({
+    return await prisma.todos.delete({
       where: {
         id: Number(id),
       },

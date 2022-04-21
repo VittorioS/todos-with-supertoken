@@ -1,5 +1,5 @@
 import Head from "next/head"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Button from "react-bootstrap/Button"
 import Col from "react-bootstrap/Col"
 import Container from "react-bootstrap/Container"
@@ -16,6 +16,70 @@ import { useSessionContext } from "supertokens-auth-react/recipe/session"
 //#region Utilities
 const res2json = (res) => res.json()
 const fetcher = (...args) => fetch(...args).then(res2json)
+//#endregion
+
+//#region Hooks
+export function useTodos() {
+  const {
+    data: todos,
+    error,
+    mutate: mutateTodos,
+  } = useSWR("/api/todos", fetcher, {
+    revalidateOnFocus: false,
+    fallbackData: [],
+  })
+
+  const create = (content) => {
+    //#region Validation
+    //#endregion
+    //#region Perform request
+    return fetch("api/todos", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    })
+      .then(res2json)
+      .then((todo) => {
+        return mutateTodos([...todos, todo])
+      })
+    //#endregion
+  }
+
+  const update = ({ id, content }) => {
+    //#region Validation
+    //#endregion
+    //#region Perform request
+    return fetch(`api/todos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ id, content }),
+    })
+      .then(res2json)
+      .then((todoUpdated) => {
+        return mutateTodos(
+          todos.map((todo) => {
+            if (todo.id === todoUpdated.id) return todoUpdated
+            return todo
+          })
+        )
+      })
+    //#endregion
+  }
+
+  const remove = (id) => {
+    //#region Validation
+    //#endregion
+    //#region Perform request
+    return fetch(`api/todos/${id}`, {
+      method: "DELETE",
+    })
+      .then(res2json)
+      .then((todoDeleted) => {
+        return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
+      })
+    //#endregion
+  }
+
+  return [todos, { create, update, remove }]
+}
 //#endregion
 
 export function Header({ fullName, signed, onSignOut }) {
@@ -55,78 +119,39 @@ export function Header({ fullName, signed, onSignOut }) {
 }
 
 export function Body() {
-  const {
-    data: todos,
-    error,
-    mutate: mutateTodos,
-  } = useSWR("/api/todos", fetcher, {
-    revalidateOnFocus: false,
-    fallbackData: [],
-  })
+  const [
+    todos,
+    { create: createTodo, update: updateTodo, remove: removeTodo },
+  ] = useTodos()
+  const [content, setContent] = useState("")
   const isLoading = !todos
 
-  const handlerAdd = (content) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
-    fetch("api/todos", {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    })
-      .then(res2json)
-      .then((todo) => {
-        return mutateTodos([...todos, todo])
-      })
-    //#endregion
-  }
+  const handlerChangeContent = (newContent) => setContent(newContent)
 
-  const handlerEdit = ({ id, content }) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
-    fetch(`api/todos/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ id, content }),
-    })
-      .then(res2json)
-      .then((todoUpdated) => {
-        return mutateTodos(
-          todos.map((todo) => {
-            if (todo.id === todoUpdated.id) return todoUpdated
-            return todo
-          })
-        )
-      })
-    //#endregion
-  }
-
-  const handlerDelete = (id) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
-    fetch(`api/todos/${id}`, {
-      method: "DELETE",
-    })
-      .then(res2json)
-      .then((todoDeleted) => {
-        return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
-      })
-    //#endregion
+  const handlerAdd = async (content) => {
+    await createTodo(content)
+    setContent("")
   }
 
   return (
     <Container>
-      <TodoForm className="pt-5" onAdd={handlerAdd}></TodoForm>
+      <TodoForm
+        className="pt-5"
+        content={content}
+        onChangeContent={handlerChangeContent}
+        onSubmit={handlerAdd}
+      ></TodoForm>
       <TodoList className="pt-3" loading={isLoading}>
         {todos.map(({ id, content }) => (
-          <TodoItem
+          <TodoItemEditable
             key={id}
-            id={id}
-            onDelete={handlerDelete}
-            onEdit={handlerEdit}
+            onClickDelete={() => removeTodo(id)}
+            onClickSave={(newContent) =>
+              updateTodo({ id, content: newContent })
+            }
           >
             {content}
-          </TodoItem>
+          </TodoItemEditable>
         ))}
       </TodoList>
     </Container>
@@ -212,14 +237,19 @@ export function TodoItem({ id, children, onDelete, onEdit }) {
 
 export function TodoForm({
   className,
-  defaultContent = "",
+  content = "",
   buttonText = "Add todo",
-  onAdd,
+  onChangeContent,
+  onSubmit,
 }) {
-  const [content, setContent] = useState(defaultContent)
   const [validated, setValidated] = useState(false)
 
-  const handlerChange = (e) => setContent(e.target.value)
+  const handlerChange = (e) => {
+    //#region fire change content event
+    const isChangeContentValid = typeof onChangeContent === "function"
+    if (isChangeContentValid) onChangeContent(e.target.value)
+    //#endregion
+  }
 
   const handlerSubmit = (event) => {
     const form = event.currentTarget
@@ -227,20 +257,16 @@ export function TodoForm({
 
     try {
       //#region Validation
-      if (!form.checkValidity()) throw UserError("Validation failed")
-      if (content == "") throw UserError("Content is mandatory")
+      if (!form.checkValidity()) throw new UserError("Validation failed")
+      if (content == "") throw new UserError("Content is mandatory")
       //#endregion
 
-      //#region fire add event
-      const isAddValid = typeof onAdd === "function"
-      if (isAddValid) onAdd(content)
+      //#region fire submit event
+      const isSubmitValid = typeof onSubmit === "function"
+      if (isSubmitValid) onSubmit(content)
       //#endregion
 
-      //#region Perform request
-      //#endregion
       setValidated(true)
-      setContent("")
-      form.reset()
     } catch (exception) {
       setValidated(false)
       handlerUserError(exception)
@@ -248,7 +274,7 @@ export function TodoForm({
   }
 
   const handlerUserError = (error) => {
-    const isUserErrorInstance = e instanceof UserError
+    const isUserErrorInstance = error instanceof UserError
     if (!isUserErrorInstance) throw error
   }
 
@@ -302,4 +328,114 @@ export default function Page() {
       <Body></Body>
     </>
   )
+}
+
+export function TodoItemBasic(props) {
+  if (props.buttons == null) {
+    return <ListGroup.Item>{props.children}</ListGroup.Item>
+  }
+  return (
+    <ListGroup.Item>
+      <Row className="justify-content-center align-items-center">
+        <Col>{props.children}</Col>
+        <Col xs="auto" className="text-align-right">
+          {props.buttons}
+        </Col>
+      </Row>
+    </ListGroup.Item>
+  )
+}
+
+export function TodoItemEditable(props) {
+  const [editable, setEditable] = useState(false)
+  const [content, setContent] = useState("")
+
+  useEffect(() => {
+    setContent(props.children)
+  }, [props.children])
+
+  useEffect(() => {
+    setEditable(props.editable)
+  }, [props.editable])
+
+  const handlerChangeContent = (newContent) => setContent(newContent)
+
+  const handlerClickDelete = () => {
+    //#region fire delete event
+    if (typeof props.onClickDelete === "function") props.onClickDelete()
+    //#endregion
+  }
+
+  const handlerClickEdit = () => {
+    //#region fire edit event
+    if (typeof props.onClickEdit === "function") props.onClickEdit()
+    //#endregion
+    setEditable(true)
+  }
+
+  const handlerClickCancel = () => {
+    //#region fire edit event
+    if (typeof props.onClickEdit === "function") props.onClickEdit()
+    //#endregion
+    setEditable(false)
+    setContent(props.children)
+  }
+
+  const handlerClickSave = (newContent) => {
+    //#region fire save event
+    if (typeof props.onClickSave === "function") props.onClickSave(newContent)
+    //#endregion
+    setEditable(false)
+  }
+
+  const DeleteButton = (
+    <Button key="deleteButton" variant="danger" onClick={handlerClickDelete}>
+      Delete
+    </Button>
+  )
+
+  const EditButton = (
+    <Button
+      key="editButton"
+      className="me-1"
+      variant="secondary"
+      onClick={handlerClickEdit}
+    >
+      Edit
+    </Button>
+  )
+
+  const CancelButton = (
+    <Button
+      key="cancelButton"
+      className="me-1"
+      variant="secondary"
+      onClick={handlerClickCancel}
+    >
+      Cancel
+    </Button>
+  )
+
+  const buttons = []
+  if (editable) {
+    buttons.push(CancelButton)
+  } else {
+    buttons.push(EditButton)
+  }
+  buttons.push(DeleteButton)
+
+  let children
+  if (editable) {
+    children = (
+      <TodoForm
+        buttonText="Save"
+        content={content}
+        onChangeContent={handlerChangeContent}
+        onSubmit={handlerClickSave}
+      ></TodoForm>
+    )
+  } else {
+    children = props.children
+  }
+  return <TodoItemBasic buttons={buttons}>{children}</TodoItemBasic>
 }
