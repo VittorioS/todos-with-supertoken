@@ -9,15 +9,11 @@ import Pagination from "react-bootstrap/Pagination"
 import Navbar from "react-bootstrap/Navbar"
 import Row from "react-bootstrap/Row"
 import Spinner from "react-bootstrap/Spinner"
+import Fade from "react-bootstrap/Fade"
 import useSWR from "swr"
 import UserError from "../utils/userError"
 import { signOut } from "supertokens-auth-react/recipe/emailpassword"
 import { useSessionContext } from "supertokens-auth-react/recipe/session"
-
-//#region Utilities
-const res2json = (res) => res.json()
-const fetcher = (...args) => fetch(...args).then(res2json)
-//#endregion
 
 //#region Repository
 export const TodoRepositoryREST = {
