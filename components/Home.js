@@ -226,7 +226,7 @@ export function Body() {
 
   const handlerChangeContent = (newContent) => setContent(newContent)
 
-  const handlerAdd = async (content) => {
+  const handlerAdd = async () => {
     await createTodo(content)
     setContent("")
   }
