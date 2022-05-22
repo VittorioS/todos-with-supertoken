@@ -5,6 +5,7 @@ import Col from "react-bootstrap/Col"
 import Container from "react-bootstrap/Container"
 import Form from "react-bootstrap/Form"
 import ListGroup from "react-bootstrap/ListGroup"
+import Pagination from "react-bootstrap/Pagination"
 import Navbar from "react-bootstrap/Navbar"
 import Row from "react-bootstrap/Row"
 import Spinner from "react-bootstrap/Spinner"
@@ -19,80 +20,166 @@ const fetcher = (...args) => fetch(...args).then(res2json)
 //#endregion
 
 //#region Repository
-const TodoRepositoryREST = {
+export const TodoRepositoryREST = {
+  findAll: async (options) => {
+    let page = 0
+    let size = 0
+    if (options) {
+      if (options.pagination) {
+        if (typeof options.pagination.page === "number") {
+          page = options.pagination.page
+        }
+        if (typeof options.pagination.size === "number") {
+          size = options.pagination.size
+        }
+      }
+    }
+    const response = await fetch(`api/todos`, {
+      method: "GET",
+    })
+    const json = await response.json()
+    return {
+      content: json,
+      pageNumber: 0,
+      totalPages: 1,
+    }
+  },
   create: async (content) => {
-    //#region Perform request
     const response = await fetch("api/todos", {
       method: "POST",
       body: JSON.stringify({ content }),
     })
-    return res2json(response)
-    //#endregion
+    return response.json()
   },
   update: async ({ id, content }) => {
-    //#region Perform request
     const response = await fetch(`api/todos/${id}`, {
       method: "PUT",
       body: JSON.stringify({ id, content }),
     })
-    return res2json(response)
-    //#endregion
+    return response.json()
   },
   remove: async (id) => {
-    //#region Perform request
     const response = await fetch(`api/todos/${id}`, {
       method: "DELETE",
     })
-    return res2json(response)
-    //#endregion
+    return response.json()
+  },
+}
+export const TodoRepositorySpringREST = {
+  findAll: async (options) => {
+    let page = 0
+    let size = 0
+    if (options) {
+      if (options.pagination) {
+        if (typeof options.pagination.page === "number") {
+          page = options.pagination.page
+        }
+        if (typeof options.pagination.size === "number") {
+          size = options.pagination.size
+        }
+      }
+    }
+    const response = await fetch(
+      `http://localhost:8080/todos?page=${page}&size=${size}&sort=id,desc`,
+      {
+        method: "GET",
+        headers: new Headers({ "content-type": "application/json" }),
+      }
+    )
+    const json = await response.json()
+    return {
+      content: json.content,
+      pageNumber: json.pageable.pageNumber,
+      totalPages: json.totalPages,
+    }
+  },
+  create: async (content) => {
+    const response = await fetch("http://localhost:8080/todos", {
+      method: "POST",
+      headers: new Headers({ "content-type": "application/json" }),
+      body: JSON.stringify({ content }),
+    })
+    return response.json()
+  },
+  update: async ({ id, content }) => {
+    const response = await fetch(`http://localhost:8080/todos/${id}`, {
+      method: "PUT",
+      headers: new Headers({ "content-type": "application/json" }),
+      body: JSON.stringify({ id, content }),
+    })
+    return response.json()
+  },
+  remove: async (id) => {
+    const response = await fetch(`http://localhost:8080/todos/${id}`, {
+      method: "DELETE",
+    })
+    return response.json()
   },
 }
 //#endregion
 
 //#region Hooks
 export function useTodos(TodoRepository) {
+  const [page, setPage] = useState(0)
+  const [size, setSize] = useState(10)
+
+  const fetcher = () =>
+    TodoRepository.findAll({
+      pagination: {
+        page,
+        size,
+      },
+    })
+
   const {
-    data: todos,
+    data,
     error,
     mutate: mutateTodos,
-  } = useSWR("/api/todos", fetcher, {
+  } = useSWR(`api/todos?page=${page}&size=${size}`, fetcher, {
     revalidateOnFocus: false,
-    fallbackData: [],
+    fallbackData: {
+      content: [],
+      pageNumber: 0,
+      totalPages: 0,
+    },
   })
 
+  const { content: todos, pageNumber, totalPages } = data
+
+  const pagination = {
+    pageNumber,
+    totalPages,
+    setPage,
+  }
+
   const create = async (content) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
     const todo = await TodoRepository.create(content)
-    return mutateTodos([...todos, todo])
-    //#endregion
+    return mutateTodos({ ...data, content: [todo, ...todos] })
   }
 
   const update = async ({ id, content }) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
     const todoUpdated = await TodoRepository.update({ id, content })
-    return mutateTodos(
-      todos.map((todo) => {
+
+    return mutateTodos({
+      ...data,
+      content: todos.map((todo) => {
         if (todo.id === todoUpdated.id) return todoUpdated
         return todo
-      })
-    )
-    //#endregion
+      }),
+    })
   }
 
   const remove = async (id) => {
-    //#region Validation
-    //#endregion
-    //#region Perform request
     const todoDeleted = await TodoRepository.remove(id)
-    return mutateTodos(todos.filter((todo) => todo.id !== todoDeleted.id))
-    //#endregion
+    return mutateTodos({
+      ...data,
+      content: todos.filter((todo) => todo.id !== todoDeleted.id),
+    })
   }
 
-  return [todos, { create, update, remove }]
+  return [todos, pagination, { create, update, remove }]
+}
+//#endregion
 }
 //#endregion
 
@@ -135,8 +222,9 @@ export function Header({ fullName, signed, onSignOut }) {
 export function Body() {
   const [
     todos,
+    pagination,
     { create: createTodo, update: updateTodo, remove: removeTodo },
-  ] = useTodos(TodoRepositoryREST)
+  ] = useTodos(TodoRepositorySpringREST)
   const [content, setContent] = useState("")
   const isLoading = !todos
 
@@ -146,6 +234,8 @@ export function Body() {
     await createTodo(content)
     setContent("")
   }
+
+  const handlerClickItem = (page) => pagination.setPage(page - 1)
 
   return (
     <Container>
@@ -168,7 +258,65 @@ export function Body() {
           </TodoItemEditable>
         ))}
       </TodoList>
+      <PaginationTodoList
+        maxPages={5}
+        pageNumber={pagination.pageNumber + 1}
+        totalPages={pagination.totalPages}
+        onClickItem={handlerClickItem}
+      ></PaginationTodoList>
     </Container>
+  )
+}
+
+export function PaginationTodoList(props) {
+  const totalPages = props.totalPages
+  const maxPages = props.maxPages
+  const pageNumber = props.pageNumber
+  const firstPage = 1
+  const lastPage = totalPages
+  const isFirstPage = pageNumber === firstPage
+  const isLastPage = pageNumber === lastPage
+
+  const handlerClickFirstItem = () => handlerClickItem(firstPage)
+  const handlerClickLastItem = () => handlerClickItem(lastPage)
+  const handlerClickPreviousItem = () => handlerClickItem(pageNumber - 1)
+  const handlerClickNextItem = () => handlerClickItem(pageNumber + 1)
+
+  const handlerClickItem = (page) => {
+    //#region fire click event
+    if (typeof props.onClickItem === "function") props.onClickItem(page)
+    //#endregion
+  }
+
+  const paginationItems = []
+  const start = Math.max(pageNumber - maxPages, 1)
+  const end = Math.min(pageNumber + maxPages, lastPage + 1)
+  for (let i = start; i < end; i++) {
+    paginationItems.push(
+      <Pagination.Item
+        key={i}
+        active={i === pageNumber}
+        onClick={() => handlerClickItem(i)}
+      >
+        {i}
+      </Pagination.Item>
+    )
+  }
+
+  return (
+    <Pagination className="pt-1">
+      <Pagination.First
+        onClick={handlerClickFirstItem}
+        disabled={isFirstPage}
+      />
+      <Pagination.Prev
+        onClick={handlerClickPreviousItem}
+        disabled={isFirstPage}
+      />
+      {paginationItems}
+      <Pagination.Next onClick={handlerClickNextItem} disabled={isLastPage} />
+      <Pagination.Last onClick={handlerClickLastItem} disabled={isLastPage} />
+    </Pagination>
   )
 }
 
